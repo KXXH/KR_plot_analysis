@@ -1,4 +1,4 @@
-from plot_crawler import PlotParser
+from plot_crawler import PlotParser, Urls
 import pytest
 from lxml import etree
 import pdb
@@ -18,19 +18,27 @@ def make_filename(filename):
         (make_filename("4.html"), ["1", "2"],
          ["安娜与交往8年女友分后十分伤感 徐妍对自己是否坚持梦想始终不明", "安娜与母亲争吵后关系和解 宥拉智亨两小无猜因搬家而中断"]),
         (make_filename("5.html"), ["1", "2"], ["朴达乡入京科考", "大元帅金自点秘谋造反"]),
-        # (make_filename("7.html"), ["5", "6", "7", "8", "9", "10"], [""]*6),
-        (make_filename("8.html"), ["11", "12"], [""]*2)
+        (make_filename("7.html"), ["一", "二"], [
+         "再见教练", "没有犯人的杀人夜"]),
+        (make_filename("8.html"), ["11", "12"], [""]*2),
+        (make_filename("9.html"), ["8", ], ["", ])
     ]
 )
 def test_plot_parse(filename, episodes, titles):
+    urls = Urls()
     with open(filename, "r", encoding="gbk") as f:
         html = f.read()
-        parser = PlotParser("test", html, filename)
-        plot_it = parser.get_plots()
-        for i, (episode, title) in enumerate(zip(episodes, titles)):
-            print(i)
-            plot = next(plot_it)
-            pdb.set_trace()
+        parser = PlotParser("test", html, filename, urls)
+        plot_it = parser.parse_html()
+        for i, (episode, title, plot) in enumerate(zip(episodes, titles, plot_it)):
+            #plot = next()
+            # pdb.set_trace()
+            print(plot)
             assert plot.episode == episode
             assert plot.title == title
             assert len(plot.detail) > 50
+        try:
+            next(plot_it)
+        except StopIteration:
+            pass
+    assert urls.is_done(filename)
