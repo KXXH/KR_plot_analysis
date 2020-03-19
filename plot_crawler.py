@@ -12,12 +12,13 @@ from functools import wraps
 from threading import Lock
 
 Plot_para = namedtuple(
-    "Plot_para", ("show_name", "episode", "title", "detail"))
+    "Plot_para", ("show_name", "episode", "title", "detail", "url"))
 
 # 预编译常用正则表达式
 
 EPISODE_RE = re.compile(
-    r".*第([一二三四五六七八九十\d]+)[集回](?:韩剧|剧情|分集|简介|介绍|(?:第?\d+(?:-\d+)?[集回])|大结局|[()])*[《]?([^《》]*)[》：:]*.*")
+    r".*第?([一二三四五六七八九十\d]+)[集回](?:韩剧|剧情|分集|简介|介绍|(?:第?\d+(?:-\d+)?[集回])|大结局|[()])*[《]?([^《》]*)[》：:]*.*")
+EXTRACT_EPISODE_RE = re.compile(r"第?([\d一二三四五六七八九十百]+)[集回]")
 SHOW_NAME_RE = re.compile(
     r"(?:韩剧)?(.*?)(韩剧|剧情|分集|简介|介绍|(?:第?\d+(?:-\d+)?[集回])|大结局)+.*")
 TITLE_LENGTH = 35
@@ -50,14 +51,16 @@ class PageNotFoundException(Exception):
 
 class Urls:
     def __init__(self):
-        self.todo = queue.LifoQueue()
+        self.todo = set()
         self.done = set()
         self.fail = queue.Queue()
         self.lock = Lock()
 
     def get_url(self):
-        url = self.todo.get()
+        self.lock.acquire()
+        url = self.todo.pop()
         logging.debug(f"get_url returns {url}.")
+        self.lock.release()
         return url
 
     def done_url(self, url):
@@ -77,10 +80,17 @@ class Urls:
         logging.warning(f"{url} failed!")
 
     def add_urls(self, urls):
-        for url in urls:
-            if url is not None and len(url):
-                logging.info(f"{url} is added.")
-                self.todo.put(url)
+        self.lock.acquire()
+        self.todo = self.todo.union(urls)
+        if None in self.todo:
+            self.todo.remove(None)
+        self.lock.release()
+
+    def empty(self):
+        self.lock.acquire()
+        flag = bool(len(self.todo) == 0)
+        self.lock.release()
+        return flag
 
 
 class Download:
@@ -94,7 +104,7 @@ class Download:
 
 class PlotParser:
     @staticmethod
-    def predicate(episode, title_matched=False):
+    def predicate(episode, title_matched=True):
         """工厂函数，生产条件选择器
 
         允许p和u标签并且不含有第x集，或是含有第x集，且x=episode的标签
@@ -125,7 +135,7 @@ class PlotParser:
     def is_episode(r, episode=""):
         content = get_full_content(r)
         match = EPISODE_RE.match(content)
-        if match and match.group(1) and match.group(1) != episode:
+        if match and match.group(1) and match.group(1) != episode and len(content) < TITLE_LENGTH:
             return True
         else:
             return False
@@ -146,7 +156,7 @@ class PlotParser:
 
     def parse_html(self):
         logging.info(f"parsing {self.url}...")
-        self.put_urls()
+        # self.put_urls()
         yield from self.get_plots()
         self.urls.done_url(self.url)
         logging.info(f"{self.url}已经完成")
@@ -179,11 +189,15 @@ class PlotParser:
         logging.debug(f"episode_dom={episode_dom.text}")
 
         # 匹配集数
-        match = EPISODE_RE.search(get_full_content(episode_dom))
-        episode = match.group(1) if match else "0"
+        episode_title = get_full_content(episode_dom)
+        match = EPISODE_RE.search(episode_title)
+        if match:
+            episode = EXTRACT_EPISODE_RE.search(episode_title).group(1)
+        else:
+            episode = "0"
 
         # 创建条件判别函数
-        predicate = self.predicate(episode)
+        predicate = self.predicate(episode, title_matched=True)
         # 剧情详细描述
         detail = ""
 
@@ -215,7 +229,7 @@ class PlotParser:
             else:
                 rest_it = chain([line, ], results)
                 break
-        return rest_it, Plot_para(self.show_name, episode, title, detail)
+        return rest_it, Plot_para(self.show_name, episode, title, detail, self.url)
 
     def put_urls(self):
         intros = self.html.xpath('//ul[contains(@class,"c2")]//a')
@@ -223,7 +237,7 @@ class PlotParser:
             url = intro.get("href")
             text = get_full_content(intro)
             if PlotParser.is_episode(intro) and not self.urls.is_done(url):
-                self.urls.add_urls([(self.show_name, url), ])
+                self.urls.add_urls([(url, self.show_name), ])
                 logging.debug(f"put {url} into urls")
         return intros
 
@@ -242,9 +256,17 @@ class PlotScheduler:
             self.urls
         )
         yield from parser.parse_html()
+        try:
+            for i in range(2, self.limit):
+                url = f"{base_url}_{i}.html"
+                html = self.download.download(url)
+                parser = PlotParser(show_name, html, url, self.urls)
+                yield from parser.get_plots()
+        except PageNotFoundException:
+            logging.info(f"{show_name}-{base_url} is done.")
 
     def run(self):
-        while not self.urls.todo.empty():
+        while not self.urls.empty():
             base_url, show_name = self.urls.get_url()
             base_url = base_url.rstrip(".html")
             yield from self.get_plots(base_url, show_name)
@@ -314,7 +336,8 @@ class Output:
         "episode"	TEXT,
         "title"	TEXT,
         "detail"	TEXT,
-        "edit_time"	TEXT
+        "edit_time"	TEXT,
+        "url" TEXT
     );
     """
 
@@ -343,7 +366,7 @@ class Output:
 
     def store_to_db(self, plots):
         sql = """
-        INSERT INTO plots (show_name,episode,title,detail,edit_time) VALUES(?,?,?,?,datetime("now"))
+        INSERT INTO plots (show_name,episode,title,detail,edit_time,url) VALUES(?,?,?,?,?,datetime("now"))
         """
         self.conn.executemany(sql, plots)
         self.conn.commit()
@@ -359,6 +382,8 @@ class Scheduler:
 
     def crawler(self):
         self.mainPageScheduler.get_shows()
+        input(
+            f"韩剧索引已完成，共找到剧集链接{len(self.mainPageScheduler.urls.todo)}，任意键继续")
         with self.output.open_db("tv.db") as output:
             with futures.ThreadPoolExecutor(8) as executor:
                 todo_list = []
@@ -371,7 +396,7 @@ class Scheduler:
                     map(lambda i: i.result(), results)))
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, filename="log.log")
 if __name__ == "__main__":
 
     scheduler = Scheduler()

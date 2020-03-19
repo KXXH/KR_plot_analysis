@@ -1,4 +1,4 @@
-from plot_crawler import PlotParser, Urls
+from plot_crawler import PlotParser, Urls, PlotScheduler
 import pytest
 from lxml import etree
 import pdb
@@ -21,7 +21,9 @@ def make_filename(filename):
         (make_filename("7.html"), ["一", "二"], [
          "再见教练", "没有犯人的杀人夜"]),
         (make_filename("8.html"), ["11", "12"], [""]*2),
-        (make_filename("9.html"), ["8", ], ["", ])
+        (make_filename("9.html"), ["8", ], ["", ]),
+        (make_filename("10.html"), ["16", ], ["", ]),
+        (make_filename("11.html"), ["66", ], ["", ])
     ]
 )
 def test_plot_parse(filename, episodes, titles):
@@ -37,8 +39,42 @@ def test_plot_parse(filename, episodes, titles):
             assert plot.episode == episode
             assert plot.title == title
             assert len(plot.detail) > 50
-        try:
-            next(plot_it)
-        except StopIteration:
-            pass
-    assert urls.is_done(filename)
+
+
+"""
+@pytest.mark.parametrize("filename,links", [
+    (make_filename("10.html"), [
+        "http://www.bjxyxd.com/7/29375.html",
+        "http://www.bjxyxd.com/3/23175.html",
+        "http://www.bjxyxd.com/3/23091.html",
+        "http://www.bjxyxd.com/3/22252.html",
+        "http://www.bjxyxd.com/9/22095.html",
+
+    ])
+])
+def test_links(filename, links):
+    urls = Urls()
+    with open(filename, "r", encoding="gbk") as f:
+        html = f.read()
+        parser = PlotParser("test", html, filename, urls)
+        plot_it = parser.put_urls()
+        s = set(map(lambda x: x[0], urls.todo))
+        print(s)
+        assert s == set(links)
+"""
+
+
+@pytest.mark.parametrize(
+    "base_url,episodes", [
+        ("http://www.bjxyxd.com/3/50417.html", 12)
+    ]
+)
+def test_episodes(base_url, episodes):
+    urls = Urls()
+    urls.add_urls([base_url, ])
+    scheduler = PlotScheduler(urls)
+    plots = scheduler.get_plots(base_url.rstrip(".html"), "test")
+    for ep in range(1, episodes+1):
+        plot = next(plots)
+        print(plot)
+        assert plot.episode == str(ep)
