@@ -123,3 +123,12 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# API_KEY file
+*.key
+
+# zip file
+*.gz
+
+# db file
+*.db
