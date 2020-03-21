@@ -15,13 +15,17 @@
 | popularity_downloader.py   | TMDB的每日欢迎度信息下载工具（提供CLI）         |
 | read_daily_exports.py      | TMDB每日欢迎度信息分析解压和导出工具（提供CLI） |
 | analysis_daily_export.py   | 每日欢迎度信息分析工具（提供CLI）               |
+| nielsen_kr_top20.py        | 尼尔森韩国收视率TOP20爬虫（提供CLI）            |
+| micro_index_crawler.py     | 微博指数爬虫（提供CLI）                         |
 | api.key                    | 保存TMDB的API密钥。未上传。                     |
 | edited_baidu_stopwords.txt | 根据分词结果修改后的百度停用词库                |
 | data/                      | 目前已经整理完成的数据集成果                    |
 
 ## TODO
 
-- 韩国尼尔森收视率网站爬虫
+- ~~韩国尼尔森收视率网站爬虫~~
 - 豆瓣爬虫
-- 微博指数获取
+- ~~微博指数获取~~
 - TMDB演员信息收集和分析工具
+- TMDB影视元信息下载
+
