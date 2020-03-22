@@ -13,30 +13,31 @@ def stopwordslist():
     return stopwords
 
 
-conn = sqlite3.connect("tv.db")
-cur = conn.cursor()
-sql = "SELECT detail FROM plots"
-cur.execute(sql)
-it = cur.fetchone()
-word_freq = Counter()
-record_count = 0
-word_count = 0
-stopwords = stopwordslist()
-while it:
-    detail = it[0]
-    record_count += 1
-    word_count += len(detail)
-    cut_result = jieba.cut(detail)
-    filtered_result = filter(lambda x: x not in stopwords, cut_result)
-    word_freq.update(filtered_result)
-    print(f"已处理了{record_count}条记录，共{word_count}个字符")
+if __name__ == "__main__":
+    conn = sqlite3.connect("tv.db")
+    cur = conn.cursor()
+    sql = "SELECT detail FROM plots"
+    cur.execute(sql)
     it = cur.fetchone()
-wc = wordcloud.WordCloud(
-    font_path=FONTS, background_color="white", width=1920, height=1080)
-wc.generate_from_frequencies(word_freq)
+    word_freq = Counter()
+    record_count = 0
+    word_count = 0
+    stopwords = stopwordslist()
+    while it:
+        detail = it[0]
+        record_count += 1
+        word_count += len(detail)
+        cut_result = jieba.cut(detail)
+        filtered_result = filter(lambda x: x not in stopwords, cut_result)
+        word_freq.update(filtered_result)
+        print(f"已处理了{record_count}条记录，共{word_count}个字符")
+        it = cur.fetchone()
+    wc = wordcloud.WordCloud(
+        font_path=FONTS, background_color="white", width=1920, height=1080)
+    wc.generate_from_frequencies(word_freq)
 
-plt.imshow(wc)
-plt.axis('off')
-plt.show()
-wc.to_file("wc.jpg")
-wc.to_html
+    plt.imshow(wc)
+    plt.axis('off')
+    plt.show()
+    wc.to_file("wc.jpg")
+    wc.to_html

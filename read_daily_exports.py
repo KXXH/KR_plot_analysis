@@ -36,7 +36,7 @@ if __name__ == "__main__":
     sql = "INSERT INTO popularity (id,original_name,popularity,create_at) VALUES(?,?,?,?)"
     arg = parser.parse_args()
     if arg.file:
-        file2db(Path(arg.file))
+        file2db(Path(arg.file), conn)
     else:
         for fpath in Path(arg.path).glob("*.gz"):
             file2db(fpath, conn)
