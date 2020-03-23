@@ -4,8 +4,13 @@ from functools import lru_cache, partialmethod
 from itertools import islice
 
 
+def load_key_from_file(filename):
+    with open(filename, "r") as f:
+        return f.read()
+
+
 class TMDBApi:
-    def __init__(self, api_key, language, enable_https=False):
+    def __init__(self, api_key, language, enable_https=False, retry=3):
         self.api_key = api_key
         self.language = language
         schema = "http" if not enable_https else "https"
@@ -14,12 +19,20 @@ class TMDBApi:
             "api_key": self.api_key,
             "language": self.language
         }
+        self.session = requests.Session()
+        self.session.mount(
+            self.base_url, requests.adapters.HTTPAdapter(max_retries=retry))
+
+    def _merge_dict(self, d):
+        base_params = self.base_params.copy()
+        base_params.update(d)
+        return base_params
 
     @lru_cache()
     def get_details(self, id, target):
         logging.info(f"downloading {target}-{id} detail...")
         url = f"{self.base_url}/{target}/{id}"
-        r = requests.get(url, params=self.base_params)
+        r = self.session.get(url, params=self.base_params)
         return r.json()
 
     get_tv_details = partialmethod(get_details, target="tv")
@@ -30,16 +43,18 @@ class TMDBApi:
     def get_credits(self, id, target):
         logging.info(f"downloading {target}-{id} credits...")
         url = f"{self.base_url}/{target}/{id}/credits"
-        r = requests.get(url, params=self.base_params)
+        r = self.session.get(url, params=self.base_params)
         return r.json()
+    get_tv_credits = partialmethod(get_credits, target="tv")
+    get_movie_credits = partialmethod(get_credits, target="movie")
 
     @lru_cache()
     def search(self, query, target, page=1, first_air_date_year=None):
         logging.info(f"searching {query} {target}...")
         url = f"{self.base_url}/search/{target}"
-        r = requests.get(
+        r = self.session.get(
             url,
-            params=self.merge_dict({
+            params=self._merge_dict({
                 "query": query,
                 "page": page,
                 "first_air_date_year": first_air_date_year
@@ -51,9 +66,9 @@ class TMDBApi:
     def get_popular(self, page, target):
         logging.info(f"get popular {target} at page {page}...")
         url = f"{self.base_url}/{target}/popular"
-        r = requests.get(
+        r = self.session.get(
             url,
-            params=self.merge_dict(
+            params=self._merge_dict(
                 {"page": page}
             )
         )
@@ -72,7 +87,12 @@ class TMDBApi:
                 count += item_nums
                 yield from results
 
-    def merge_dict(self, d):
-        base_params = self.base_params.copy()
-        base_params.update(d)
-        return base_params
+    @lru_cache()
+    def get_genre_list(self, target):
+        logging.info(f"get genre list for {target}...")
+        url = f"{self.base_url}/genre/{target}/list"
+        r = self.session.get(url, params=self.base_params)
+        return r.json().get("genres", [])
+
+    get_tv_genre_list = partialmethod(get_genre_list, target="tv")
+    get_movie_genre_list = partialmethod(get_genre_list, target="movie")
