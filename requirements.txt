@@ -1,0 +1,4 @@
+jieba
+lxml
+requests
+py2neo
