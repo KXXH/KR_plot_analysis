@@ -1,6 +1,6 @@
 # 一个简单的剧情分析工具
 
-![UI展示](..\img\tool_ui_1.png)
+![UI展示](../img/tool_ui_1.png)
 
 ## 简介
 
