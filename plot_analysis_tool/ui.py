@@ -236,7 +236,9 @@ def show_apriori():
         result_tree.delete(*result_tree.get_children())
         itemsets = mt.apriori(v)
         for item_size in itemsets:
-            result_tree.insert("", END, item_size, text=f"{item_size}")
+            l = len(itemsets[item_size])
+            result_tree.insert("", END, item_size,
+                               text=f"{item_size}", values=[l, ])
         for s, value in itemsets.items():
             for group, count in value.items():
                 result_tree.insert(s, END, group, values=[
@@ -249,8 +251,10 @@ def show_apriori():
         if not filename:
             return
         filename = Path(filename)
+        res = [list(item.items()) for item in itemsets.values()]
+        print(res)
         with open(filename, "w") as f:
-            f.write(json.dumps(itemsets))
+            f.write(json.dumps(res))
         change_status(f"导出频繁模式至{filename.name}!")
 
     support_scale = Scale(top_l, label="Min Support", from_=0, to=0.5, length=200, orient=HORIZONTAL,
@@ -258,7 +262,7 @@ def show_apriori():
     result_tree.pack(expand=True, fill="x")
     support_scale.pack()
     export_btn = Button(top_l, text="导出频繁模式", command=export_apriori)
-    # export_btn.pack()
+    export_btn.pack()
     itemsets = on_scale(0)
 
 
@@ -342,7 +346,7 @@ co_present_menu.add_command(label="显示共现矩阵", command=get_co_present)
 co_present_menu.add_command(label="导出共现矩阵", command=export_co_present)
 co_present_menu.add_command(label="(test)频繁模式", command=show_apriori)
 co_present_menu.add_command(label="(test)升级版共现分析",
-                            command=show_co_present_plus)
+                            command=show_co_present_plus, state="disabled")
 
 cut_menu = Menu(menu, tearoff=0)
 menu.add_cascade(label="分词", menu=cut_menu)
