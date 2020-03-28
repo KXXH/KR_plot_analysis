@@ -21,6 +21,7 @@
 | api.key                    | 保存TMDB的API密钥。未上传。                                  |
 | edited_baidu_stopwords.txt | 根据分词结果修改后的百度停用词库                             |
 | data/                      | 目前已经整理完成的数据集成果                                 |
+| TMDBapi/                   | TMDB封装版API                                                |
 | plot_analysis_tool/        | 剧情处理和分析工具库，提供GUI。详见[README](plot_analysis_tool/README.md) |
 
 ## TODO

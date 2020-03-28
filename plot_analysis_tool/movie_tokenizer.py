@@ -1,7 +1,25 @@
 import re
 from jieba import Tokenizer
 from itertools import chain, filterfalse, combinations
-from collections import defaultdict, Counter
+from collections import defaultdict, Counter, namedtuple
+from efficient_apriori import apriori
+
+
+class Largest_Set:
+    def __init__(self):
+        self.level = defaultdict(set)
+
+    def add(self, income_set):
+        self.level[len(income_set)].add(income_set)
+
+    def __iter__(self):
+        levels = sorted(self.level.keys(), reverse=True)
+        for index, level in enumerate(levels):
+            for name_set in self.level[level]:
+                yield name_set
+                for scan_level in levels[index+1:]:
+                    self.level[scan_level] -= set(
+                        filter(lambda scan_set: scan_set < name_set, self.level[scan_level]))
 
 
 class Movie_Tokenizer:
@@ -11,6 +29,7 @@ class Movie_Tokenizer:
 
     def __init__(self):
         self.dt = Tokenizer()
+        self.dt.initialize()  # 预加载字典，避免界面卡顿
         self.name_dict = {}
         self.reversed_name_dict = {}
         self.text = None
@@ -81,19 +100,25 @@ class Movie_Tokenizer:
 
     def initialize_tokenizer(self):
         self.dt = Tokenizer()
+        self.dt.initialize()
         self._cache_expired()
 
-    def co_present(self):
-        word_list = self.cut()
-        replaced_list = []
-        res = defaultdict(lambda: defaultdict(int))
+    def names_by_sentence(self, drop_empty=False):
+        cut_result = self.cut()
         words_dict = self._generate_words_dict()
-        for i, words in enumerate(word_list):
+        for line in cut_result:
             word_set = set(self.reversed_name_dict.get(
-                word) or word for word in words)
+                word) or word for word in line)
             word_set_without_stopwords = set(filter(
                 lambda word: word not in self.STOPWORDS, word_set))
             name_set = word_set_without_stopwords & words_dict
+            if drop_empty and not name_set:
+                continue
+            yield name_set
+
+    def co_present(self):
+        res = defaultdict(lambda: defaultdict(int))
+        for name_set in self.names_by_sentence():
             for name1, name2 in combinations(name_set, 2):
                 res[name1][name2] += 1
                 res[name2][name1] += 1
@@ -117,3 +142,21 @@ class Movie_Tokenizer:
         self.STOPWORDS = set(line.strip() for line in open(
             filename, encoding="utf8").readlines())
         self._cache_expired()
+
+    def apriori(self, min_support=0.01):
+        names_by_sentence = list(self.names_by_sentence(drop_empty=True))
+        itemsets, rule = apriori(names_by_sentence, min_support=min_support)
+        return itemsets
+
+    def largest_co_present(self):
+        """最大共现
+
+        返回的只有最大共现集合迭代器。不返回出现次数，因为在最大情况下出现次数一般都很低
+        """
+
+        names_by_sentence = self.names_by_sentence(drop_empty=True)
+        ls = Largest_Set()
+        for line in names_by_sentence:
+            line = frozenset(line)  # 一定要使用frozenset，因为set不可哈希
+            ls.add(line)
+        yield from ls

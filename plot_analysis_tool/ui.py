@@ -4,11 +4,12 @@ from tkinter import ttk
 from tkinter import messagebox
 import json
 
+from pathlib import Path
 from movie_tokenizer import Movie_Tokenizer
 
 root = Tk()
 root.title("剧情分词工具")
-
+root.resizable(0, 0)
 selected_name = None
 selected_index = None
 
@@ -95,6 +96,8 @@ def del_alias_cmd():
 
 
 def get_co_present():
+    text = plot_text.get("1.0", END)
+    mt.set_text(text)
     co_present = mt.co_present()
     top_l = Toplevel(root)
     top_l.title("共现矩阵")
@@ -122,13 +125,14 @@ def export_names():
         return
     with open(filename, "w") as f:
         f.write(json.dumps(j))
-    messagebox.showinfo(message=f"已成功导出角色信息文件到{filename}")
+    change_status(message=f"已成功导出角色信息文件到{filename}")
 
 
 def import_names():
     filename = filedialog.askopenfilename(title="打开角色信息文件")
     if not filename:
         return
+    filename = Path(filename)
     with open(filename, "r", encoding="utf8") as f:
         j = json.loads(f.read())
     for key in j:
@@ -136,7 +140,8 @@ def import_names():
     mt.import_name_dict(j)
     refresh_name()
     refresh_alias()
-    messagebox.showinfo(message=f"{filename}已成功导入")
+
+    change_status(message=f"{filename.name} 已成功导入")
 
 
 def export_co_present():
@@ -145,9 +150,10 @@ def export_co_present():
         title="导出共现矩阵", filetypes=[("JSON文件", "*.json")], defaultextension="json")
     if not filename:
         return
+    filename = Path(filename)
     with open(filename, "w") as f:
         f.write(json.dumps(matrix))
-    messagebox.showinfo(message=f"已成功导出至{filename}")
+    change_status(message=f"已成功导出至{filename.name}")
 
 
 def import_stopwords():
@@ -155,8 +161,9 @@ def import_stopwords():
         title="读取停用词", filetypes=[("文本文件", "*.txt")])
     if not filename:
         return
+    filename = Path(filename)
     mt.import_stopwords(filename)
-    messagebox.showinfo(message=f"成功从文件{filename}导入停用词!")
+    change_status(message=f"成功从文件{filename.name} 导入停用词!")
 
 
 def import_plot():
@@ -164,10 +171,12 @@ def import_plot():
         title="打开剧情文件", filetypes=[("文本文件", "*.txt")])
     if not filename:
         return
+    filename = Path(filename)
     with open(filename, "r", encoding="utf8") as f:
         text = f.read()
     mt.set_text(text)
     refresh_plot_text()
+    change_status(f"成功从文件{filename.name} 导入剧情!")
 
 
 def export_cut():
@@ -178,9 +187,10 @@ def export_cut():
         title="导出分词结果", defaultextension="json", filetypes=[("JSON文件", "*.json")])
     if not filename:
         return
+    filename = Path(filename)
     with open(filename, "w") as f:
         f.write(json.dumps(cut_result))
-    messagebox.showinfo(message=f"成功导出分词结果至f{filename}!")
+    change_status(message=f"成功导出分词结果至f{filename.name}!")
 
 
 def show_word_freq():
@@ -201,6 +211,69 @@ def show_word_freq():
     freq_table.pack()
 
 
+def itemset2text(itemsets):
+    res = []
+    for item_size in itemsets:
+        res.append(f"size: {item_size}")
+        for sets in itemsets[item_size]:
+            res.append(f"\t{sets}")
+    return "\n".join(res)
+
+
+def show_apriori():
+    text = plot_text.get("1.0", END)
+    mt.set_text(text)
+    top_l = Toplevel(root)
+    top_l.title("频繁模式")
+    columns = ["计数"]
+    result_tree = ttk.Treeview(top_l, columns=columns)
+    for column in columns:
+        result_tree.column(column)
+        result_tree.heading(column, text=column)
+
+    def on_scale(v):
+        v = float(v)
+        result_tree.delete(*result_tree.get_children())
+        itemsets = mt.apriori(v)
+        for item_size in itemsets:
+            result_tree.insert("", END, item_size, text=f"{item_size}")
+        for s, value in itemsets.items():
+            for group, count in value.items():
+                result_tree.insert(s, END, group, values=[
+                                   count, ], text=f"{group}")
+        return itemsets
+
+    def export_apriori():
+        filename = filedialog.asksaveasfilename(
+            title="导出频繁模式", filetypes=[("JSON文件", "*.json")], defaultextension="json")
+        if not filename:
+            return
+        filename = Path(filename)
+        with open(filename, "w") as f:
+            f.write(json.dumps(itemsets))
+        change_status(f"导出频繁模式至{filename.name}!")
+
+    support_scale = Scale(top_l, label="Min Support", from_=0, to=0.5, length=200, orient=HORIZONTAL,
+                          showvalue=1, tickinterval=0.1, resolution=0.01, command=on_scale)
+    result_tree.pack(expand=True, fill="x")
+    support_scale.pack()
+    export_btn = Button(top_l, text="导出频繁模式", command=export_apriori)
+    # export_btn.pack()
+    itemsets = on_scale(0)
+
+
+def show_co_present_plus():
+    text = plot_text.get("1.0", END)
+    mt.set_text(text)
+    res = list(mt.largest_co_present())
+    top_l = Toplevel(root)
+    top_l.title("超共现矩阵")
+    res_list = Listbox(top_l)
+    for item in res:
+        res_list.insert(END, list(item))
+    res_list.pack(fill="x", expand=True)
+
+
 def export_word_freq():
     text = plot_text.get("1.0", END)
     mt.set_text(text)
@@ -211,12 +284,12 @@ def export_word_freq():
         return
     with open(filename, "w") as f:
         f.write(json.dumps(freq))
-    messagebox.showinfo(message=f"成功导出词频数据至{filename}!")
+    change_status(message=f"成功导出词频数据至{filename}!")
 
 
 def initialize():
     mt.initialize_tokenizer()
-    messagebox.showinfo(message="重置分词器成功!")
+    change_status(message="重置分词器成功!")
 
 
 def tab_switch_callback(event):
@@ -233,23 +306,23 @@ def tab_switch_callback(event):
         refresh_cut_text()
 
 
+def change_status(message):
+    status_val.set(message)
+
+
 main_ntb = ttk.Notebook(root)
 
 plot_text = Text(main_ntb)
 splited_text = Text(main_ntb)
 cut_text = Text(main_ntb)
 
-#plot_text.pack(fill="x", side="top")
 main_ntb.add(plot_text, text="文字编辑")
 main_ntb.add(splited_text, text="分句")
 main_ntb.add(cut_text, text="分词")
-main_ntb.pack(expand=True)
+main_ntb.grid(row=0, column=0, columnspan=2)
 
 main_ntb.bind("<<NotebookTabChanged>>", tab_switch_callback)
 
-control_frame = Frame(root)
-
-control_frame.pack(expand=True)
 
 menu = Menu(root)
 
@@ -264,9 +337,12 @@ name_menu.add_command(label="导入角色数据", command=import_names)
 
 
 co_present_menu = Menu(menu, tearoff=0)
-menu.add_cascade(label="共现矩阵", menu=co_present_menu)
+menu.add_cascade(label="共现分析", menu=co_present_menu)
 co_present_menu.add_command(label="显示共现矩阵", command=get_co_present)
 co_present_menu.add_command(label="导出共现矩阵", command=export_co_present)
+co_present_menu.add_command(label="(test)频繁模式", command=show_apriori)
+co_present_menu.add_command(label="(test)升级版共现分析",
+                            command=show_co_present_plus)
 
 cut_menu = Menu(menu, tearoff=0)
 menu.add_cascade(label="分词", menu=cut_menu)
@@ -275,16 +351,17 @@ cut_menu.add_command(label="重置分词器", command=initialize)
 cut_menu.add_command(label="查看词频(不含停用词)", command=show_word_freq)
 cut_menu.add_command(label="导出分词结果", command=export_cut)
 
-
-alias_list = Listbox(root)
-name_list = Listbox(root)
+name_list_frame = Frame(root)
+alias_list = Listbox(name_list_frame)
+name_list = Listbox(name_list_frame)
+name_list_frame.grid(row=1, column=0)
 refresh_name()
 
 name_list.pack(side="left")
 alias_list.pack(side="left")
 
 name_control_frame = Frame(root)
-name_control_frame.pack(expand=True)
+name_control_frame.grid(row=1, column=1)
 
 name_entry = Entry(name_control_frame)
 name_label_val = StringVar()
@@ -299,6 +376,10 @@ add_alias_btn = Button(name_control_frame, text="添加别名", command=add_alia
 del_name_btn = Button(name_control_frame, text="删除角色", command=del_name_cmd)
 del_alias_btn = Button(name_control_frame, text="删除别名", command=del_alias_cmd)
 
+status_val = StringVar()
+status_bar = Label(root, textvariable=status_val, width=50)
+status_val.set("准备就绪")
+
 show_alias_btn.grid(row=0, column=0)
 name_label.grid(row=0, column=1)
 
@@ -311,4 +392,5 @@ add_alias_btn.grid(row=4, column=0)
 del_alias_btn.grid(row=4, column=1)
 
 root.config(menu=menu)
+status_bar.grid(row=2, column=0, columnspan=2, sticky=E+W)
 root.mainloop()
