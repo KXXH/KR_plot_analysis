@@ -49,7 +49,7 @@ def refresh_alias(name=None):
         alias_list.insert(0, alias)
 
 
-def show_alias_cmd():
+def show_alias_cmd(event=None):
     global selected_name, selected_index
     selected_index = name_list.curselection()
     selected_name = name_list.get(selected_index)
@@ -129,7 +129,8 @@ def export_names():
 
 
 def import_names():
-    filename = filedialog.askopenfilename(title="打开角色信息文件")
+    filename = filedialog.askopenfilename(title="打开角色信息文件", filetypes=[
+                                          ("JSON文件", "*.json")], defaultextension="json")
     if not filename:
         return
     filename = Path(filename)
@@ -266,18 +267,6 @@ def show_apriori():
     itemsets = on_scale(0)
 
 
-def show_co_present_plus():
-    text = plot_text.get("1.0", END)
-    mt.set_text(text)
-    res = list(mt.largest_co_present())
-    top_l = Toplevel(root)
-    top_l.title("超共现矩阵")
-    res_list = Listbox(top_l)
-    for item in res:
-        res_list.insert(END, list(item))
-    res_list.pack(fill="x", expand=True)
-
-
 def export_word_freq():
     text = plot_text.get("1.0", END)
     mt.set_text(text)
@@ -345,8 +334,6 @@ menu.add_cascade(label="共现分析", menu=co_present_menu)
 co_present_menu.add_command(label="显示共现矩阵", command=get_co_present)
 co_present_menu.add_command(label="导出共现矩阵", command=export_co_present)
 co_present_menu.add_command(label="(test)频繁模式", command=show_apriori)
-co_present_menu.add_command(label="(test)升级版共现分析",
-                            command=show_co_present_plus, state="disabled")
 
 cut_menu = Menu(menu, tearoff=0)
 menu.add_cascade(label="分词", menu=cut_menu)
@@ -358,6 +345,7 @@ cut_menu.add_command(label="导出分词结果", command=export_cut)
 name_list_frame = Frame(root)
 alias_list = Listbox(name_list_frame)
 name_list = Listbox(name_list_frame)
+name_list.bind("<Double-Button-1>", show_alias_cmd)
 name_list_frame.grid(row=1, column=0)
 refresh_name()
 
@@ -373,8 +361,6 @@ name_label_val.set("没有选中角色")
 name_label = Label(name_control_frame, textvariable=name_label_val)
 
 alias_entry = Entry(name_control_frame)
-show_alias_btn = Button(name_control_frame, text="选中角色",
-                        command=show_alias_cmd)
 add_name_btn = Button(name_control_frame, text="添加角色", command=add_name_cmd)
 add_alias_btn = Button(name_control_frame, text="添加别名", command=add_alias_cmd)
 del_name_btn = Button(name_control_frame, text="删除角色", command=del_name_cmd)
@@ -384,8 +370,7 @@ status_val = StringVar()
 status_bar = Label(root, textvariable=status_val, width=50)
 status_val.set("准备就绪")
 
-show_alias_btn.grid(row=0, column=0)
-name_label.grid(row=0, column=1)
+name_label.grid(row=0, column=0, columnspan=2)
 
 name_entry.grid(row=1, column=0, columnspan=2)
 add_name_btn.grid(row=2, column=0)

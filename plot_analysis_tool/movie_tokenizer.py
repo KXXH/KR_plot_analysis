@@ -5,23 +5,6 @@ from collections import defaultdict, Counter, namedtuple
 from efficient_apriori import apriori
 
 
-class Largest_Set:
-    def __init__(self):
-        self.level = defaultdict(set)
-
-    def add(self, income_set):
-        self.level[len(income_set)].add(income_set)
-
-    def __iter__(self):
-        levels = sorted(self.level.keys(), reverse=True)
-        for index, level in enumerate(levels):
-            for name_set in self.level[level]:
-                yield name_set
-                for scan_level in levels[index+1:]:
-                    self.level[scan_level] -= set(
-                        filter(lambda scan_set: scan_set < name_set, self.level[scan_level]))
-
-
 class Movie_Tokenizer:
     SKIP_SPACE_RE = re.compile(r"^\s*$")
     BREAK_SENTENCE_RE = re.compile(r"[。;；.……!！]")
@@ -32,6 +15,7 @@ class Movie_Tokenizer:
         self.dt.initialize()  # 预加载字典，避免界面卡顿
         self.name_dict = {}
         self.reversed_name_dict = {}
+
         self.text = None
         self._cut_result = []
         self.splited_result = []
@@ -107,10 +91,13 @@ class Movie_Tokenizer:
         cut_result = self.cut()
         words_dict = self._generate_words_dict()
         for line in cut_result:
+            # 替换角色名
             word_set = set(self.reversed_name_dict.get(
                 word) or word for word in line)
+            # 过滤停用词
             word_set_without_stopwords = set(filter(
                 lambda word: word not in self.STOPWORDS, word_set))
+            # 取剩余结果和角色名字典的交集
             name_set = word_set_without_stopwords & words_dict
             if drop_empty and not name_set:
                 continue
@@ -147,16 +134,3 @@ class Movie_Tokenizer:
         names_by_sentence = list(self.names_by_sentence(drop_empty=True))
         itemsets, rule = apriori(names_by_sentence, min_support=min_support)
         return itemsets
-
-    def largest_co_present(self):
-        """最大共现
-
-        返回的只有最大共现集合迭代器。不返回出现次数，因为在最大情况下出现次数一般都很低
-        """
-
-        names_by_sentence = self.names_by_sentence(drop_empty=True)
-        ls = Largest_Set()
-        for line in names_by_sentence:
-            line = frozenset(line)  # 一定要使用frozenset，因为set不可哈希
-            ls.add(line)
-        yield from ls
