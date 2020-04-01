@@ -1,4 +1,5 @@
 import requests
+import requests.exceptions
 import logging
 import argparse
 from TMDBApi import TMDBApi, load_key_from_file
@@ -123,44 +124,48 @@ def import_created_by_info(graph, people, movie_node):
 if __name__ == "__main__":
 
     def process_info(info):
-        id = info.get("id")  # 确定电影id
-        info = api.get_details(id, arg.target)
-        name = info.get("name") or info.get("title")  # 确定电影名
-        logging.info(f"当前影片: {name}")
+        try:
+            id = info.get("id")  # 确定电影id
+            info = api.get_details(id, arg.target)
+            name = info.get("name") or info.get("title")  # 确定电影名
+            logging.info(f"当前影片: {name}")
 
-        popularity = info.get("popularity", 0)
-        vote_average = info.get("vote_average", 0)
-        genre_ids = info.get("genre_ids", []) or (genre["id"]
-                                                  for genre in info.get("genres", []))
-        origin_countries = info.get("origin_country", [])
-        companies = info.get("production_companies", [])
-        created_by = info.get("created_by", [])
+            popularity = info.get("popularity", 0)
+            vote_average = info.get("vote_average", 0)
+            genre_ids = info.get("genre_ids", []) or (genre["id"]
+                                                      for genre in info.get("genres", []))
+            origin_countries = info.get("origin_country", [])
+            companies = info.get("production_companies", [])
+            created_by = info.get("created_by", [])
 
-        # 插入影片节点
-        logging.info(f"尝试插入影片节点...")
-        movie_node = insert_if_not_exists(
-            graph, id=id,
-            label=arg.target,
-            popularity=popularity,
-            vote_average=vote_average,
-            name=name
-        )
+            # 插入影片节点
+            logging.info(f"尝试插入影片节点...")
+            movie_node = insert_if_not_exists(
+                graph, id=id,
+                label=arg.target,
+                popularity=popularity,
+                vote_average=vote_average,
+                name=name
+            )
 
-        # 导入演员关系
-        import_credit_info(graph, api, id, arg.target, movie_node)
+            # 导入演员关系
+            import_credit_info(graph, api, id, arg.target, movie_node)
 
-        # 导入类型关系
-        import_genre_info(graph, genre_ids, movie_node)
+            # 导入类型关系
+            import_genre_info(graph, genre_ids, movie_node)
 
-        # 导入出品国信息
-        import_country_info(graph, origin_countries, movie_node)
+            # 导入出品国信息
+            import_country_info(graph, origin_countries, movie_node)
 
-        # 导入出品公司信息
-        import_company_info(graph, companies, movie_node)
+            # 导入出品公司信息
+            import_company_info(graph, companies, movie_node)
 
-        # 导入出品人信息
-
-        return "success"
+            # 导入出品人信息
+        except requests.exceptions.RequestException as e:
+            logging.error(e)
+            return f"fail at {info} because {e}"
+        else:
+            return "success"
 
     arg = parser.parse_args()
     if arg.verbose:
