@@ -180,6 +180,19 @@ def import_plot():
     change_status(f"成功从文件{filename.name} 导入剧情!")
 
 
+def export_plot():
+    text = plot_text.get("1.0", END)
+    mt.set_text(text)
+    filename = filedialog.asksaveasfilename(
+        title="保存剧情文件", filetypes=[("文本文件", "*.txt")], defaultextension="txt")
+    if not filename:
+        return
+    filename = Path(filename)
+    with open(filename, "w", encoding="utf8") as f:
+        f.write(text)
+    change_status(f"成功保存剧情到{filename.name}!")
+
+
 def export_cut():
     text = plot_text.get("1.0", END)
     mt.set_text(text)
@@ -322,6 +335,7 @@ menu = Menu(root)
 plot_menu = Menu(menu, tearoff=0)
 menu.add_cascade(label="剧情数据", menu=plot_menu)
 plot_menu.add_command(label="打开剧情文件", command=import_plot)
+plot_menu.add_command(label="保存剧情文件", command=export_plot)
 
 name_menu = Menu(menu, tearoff=0)
 menu.add_cascade(label="角色数据", menu=name_menu)
