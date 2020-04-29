@@ -355,6 +355,8 @@ cut_menu.add_command(label="载入停用词库", command=import_stopwords)
 cut_menu.add_command(label="重置分词器", command=initialize)
 cut_menu.add_command(label="查看词频(不含停用词)", command=show_word_freq)
 cut_menu.add_command(label="导出分词结果", command=export_cut)
+cut_menu.add_command(label="导出词频", command=export_word_freq)
+
 
 name_list_frame = Frame(root)
 alias_list = Listbox(name_list_frame)
