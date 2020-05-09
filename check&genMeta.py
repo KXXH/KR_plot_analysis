@@ -5,7 +5,7 @@ import itertools
 import re
 import warnings
 
-skip = {"3年A班-从现在起，大家都是人质", "东京大饭店"}
+skip = {"请输入搜索词：www"}
 
 api = TMDBApi(load_key_from_file("api.key"), "zh-CN")
 TV_paths = (p for p in Path("./data/TVs").iterdir()
@@ -28,6 +28,9 @@ def check_txt(filename):
 
 for TV_path in TV_paths:
     print(TV_path)
+    if TV_path/"meta.json" in TV_path.iterdir():
+        print(f"✔:跳过{TV_path}")
+        continue
     cps = sorted(TV_path.glob("CP_S*E*.json"))
     fps = sorted(TV_path.glob("FP_S*E*.json"))
     plots = sorted(TV_path.glob("plot_S*E*.txt"))
@@ -46,8 +49,11 @@ for TV_path in TV_paths:
         name = re.sub("\s*第.季", "", TV_path.name)
         res = api.search(name, "tv")
         tv_id = res['results'][0]['id'] if len(res['results']) > 0 else 0
+        if tv_id == 0:
+            print(f"❌:{TV_path}没有找到id")
         json.dump({
             "tv_id": tv_id,
             "season": int(season),
             "episodes": episodes
         }, open(TV_path/"meta.json", "w"))
+        print(f"✔:成功处理{TV_path}")

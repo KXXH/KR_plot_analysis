@@ -94,5 +94,11 @@ class TMDBApi:
         r = self.session.get(url, params=self.base_params)
         return r.json().get("genres", [])
 
+    def get_external_ids(self, target, id):
+        logging.info(f"get external_ids for {target} {id}...")
+        url = f"{self.base_url}/{target}/{id}/external_ids"
+        r = self.session.get(url, params=self.base_params)
+        return r.json()
+
     get_tv_genre_list = partialmethod(get_genre_list, target="tv")
     get_movie_genre_list = partialmethod(get_genre_list, target="movie")
