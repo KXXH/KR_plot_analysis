@@ -13,7 +13,7 @@
     "material-design-icons-iconfont": "^5.0.1",
     "vue": "^2.5.2",
     "vue-router": "^3.0.1",
-    "vuetify": "^2.2.21"
+    "vuetify": "^2.6.10"
   },
   "devDependencies": {
     "@mdi/font": "^5.0.45",
